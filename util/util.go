@@ -2,6 +2,7 @@ package util
 
 import (
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 
@@ -48,4 +49,18 @@ func CheckPasswordHash(password, hash string) bool {
 	// Compare the hashed password with the plain-text password
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	return err == nil
+}
+
+// Middleware for a request handler to implement rate limiting
+func RateLimitMiddleware(callback func(w http.ResponseWriter, r *http.Request)) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		err := CheckForRateLimit(r)
+
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		callback(w, r)
+	})
 }

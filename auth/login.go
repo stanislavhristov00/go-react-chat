@@ -18,7 +18,16 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func registerHandler(w http.ResponseWriter, r *http.Request) {
+/*
+ *	TODO:
+ *	- Implement rate limiting for login/register functionality
+ *	- Implemente black-listing of jwt tokens with Redis
+ *	- add a way to extend the jwt token if a user is nearing his expiration date, but there is still activity going on,
+ *    so we don't force him to relogin (figure this out in a safe way, could be dangerous if a malicious user got his hand on
+	  the token of another person)
+*/
+
+func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return
@@ -32,10 +41,20 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
+	if len(body) == 0 {
+		http.Error(w, "Empty body", http.StatusBadRequest)
+		return
+	}
+
 	// Unmarshal the JSON data into a User struct
 	var user models.User
 	if err := json.Unmarshal(body, &user); err != nil {
 		http.Error(w, "Invalid JSON format", http.StatusBadRequest)
+		return
+	}
+
+	if user.Email == nil || user.Password == nil || user.Username == nil {
+		http.Error(w, "Missing required fields", http.StatusBadRequest)
 		return
 	}
 
@@ -101,7 +120,7 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
  *	Here username can pertain to the actual username of the user or his email,
  * 	so we will check both of these options.
  */
-func login(w http.ResponseWriter, r *http.Request) {
+func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return
@@ -115,6 +134,11 @@ func login(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
+	if len(body) == 0 {
+		http.Error(w, "Empty body", http.StatusBadRequest)
+		return
+	}
+
 	type LoginUser struct {
 		UsernameOrEmail *string `json:"username"`
 		Password        *string `json:"password"`
@@ -124,6 +148,11 @@ func login(w http.ResponseWriter, r *http.Request) {
 	var loginUser LoginUser
 	if err := json.Unmarshal(body, &loginUser); err != nil {
 		http.Error(w, "Invalid JSON format", http.StatusBadRequest)
+		return
+	}
+
+	if loginUser.Password == nil || loginUser.UsernameOrEmail == nil {
+		http.Error(w, "Missing required fields", http.StatusBadRequest)
 		return
 	}
 
