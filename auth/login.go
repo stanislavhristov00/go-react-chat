@@ -4,15 +4,11 @@ import (
 	"chat-module/db"
 	"chat-module/models"
 	"chat-module/util"
-	"context"
 	"encoding/json"
 	"io"
 	"log"
 	"net/http"
-	"os"
-	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/bcrypt"
@@ -20,8 +16,8 @@ import (
 
 /*
  *	TODO:
- *	- Implement rate limiting for login/register functionality
- *	- Implemente black-listing of jwt tokens with Redis
+ *  - Make the handlers take a Repo interface for the db operations
+ *	- Implemente black-listing of jwt tokens
  *	- add a way to extend the jwt token if a user is nearing his expiration date, but there is still activity going on,
  *    so we don't force him to relogin (figure this out in a safe way, could be dangerous if a malicious user got his hand on
 	  the token of another person)
@@ -58,20 +54,7 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	collection := db.OpenCollection(db.Client, os.Getenv("USER_DOCUMENT"))
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-
-	filter := bson.M{
-		"$or": []bson.M{
-			{"username": *user.Username},
-			{"email": *user.Email},
-		},
-	}
-
-	// Check if we already have an existing user with these credentials
-	count, err := collection.CountDocuments(ctx, filter)
+	exists, err := db.Client.CheckUserExists(*user.Username, *user.Email)
 
 	if err != nil {
 		http.Error(w, "Failed to query database", http.StatusInternalServerError)
@@ -79,7 +62,7 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if count > 0 {
+	if exists {
 		http.Error(w, "User with this email/username already exists.", http.StatusBadRequest)
 		return
 	}
@@ -103,12 +86,11 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 
 	user.Password = &hashedPassword
 
-	_, insertErr := collection.InsertOne(ctx, user)
+	err = db.Client.AddUser(user)
 
-	if insertErr != nil {
+	if err != nil {
 		http.Error(w, "Failed to register user to the database", http.StatusInternalServerError)
 		log.Printf("Failed to insert user %s to the database: %v", *user.Username, err)
-		return
 	}
 
 	// Send a success response
@@ -156,19 +138,8 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	collection := db.OpenCollection(db.Client, os.Getenv("USER_DOCUMENT"))
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-
-	filter := bson.M{
-		"$or": []bson.M{
-			{"username": *loginUser.UsernameOrEmail},
-			{"email": *loginUser.UsernameOrEmail},
-		},
-	}
-
-	var user models.User
-	err = collection.FindOne(ctx, filter).Decode(&user)
+	var user *models.User
+	user, err = db.Client.GetUser(*loginUser.UsernameOrEmail)
 
 	if err != nil {
 		if err == mongo.ErrNoDocuments {

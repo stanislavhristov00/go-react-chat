@@ -1,10 +1,12 @@
 package util
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/joho/godotenv"
 	"golang.org/x/crypto/bcrypt"
@@ -63,4 +65,23 @@ func RateLimitMiddleware(callback func(w http.ResponseWriter, r *http.Request)) 
 
 		callback(w, r)
 	})
+}
+
+// Function to check the auth header and return the JWT token, if there is one,
+// otherwise return an empty string
+func GetAuthHeader(request *http.Request) (string, error) {
+	// Get the Authorization header value
+	authHeader := request.Header.Get("Authorization")
+
+	if authHeader == "" {
+		return "", fmt.Errorf("no JWT token supplied in the Authorization header")
+	}
+
+	// Parse the contents, since it will contain the "Bearer" prefix
+	parts := strings.Split(authHeader, " ")
+	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+		return "", fmt.Errorf("malformed Authorization header")
+	}
+
+	return parts[1], nil
 }

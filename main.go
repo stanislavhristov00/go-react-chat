@@ -3,6 +3,7 @@ package main
 import (
 	"chat-module/auth"
 	"chat-module/db"
+	"chat-module/test"
 	"chat-module/util"
 	"log"
 	"net/http"
@@ -20,6 +21,7 @@ func main() {
 
 	http.Handle("/login", util.RateLimitMiddleware(auth.LoginHandler))
 	http.Handle("/register", util.RateLimitMiddleware(auth.RegisterHandler))
+	http.Handle("/api/test/success", util.RateLimitMiddleware(test.Test200ResponseHandler))
 
 	go util.RateLimit()
 
