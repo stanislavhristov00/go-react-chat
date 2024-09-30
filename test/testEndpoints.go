@@ -8,6 +8,11 @@ import (
 )
 
 func Test200ResponseHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		return
+	}
+
 	log.Printf("Request to TEST endpoint from user: %s", r.RemoteAddr)
 
 	token, err := util.GetAuthHeader(r)

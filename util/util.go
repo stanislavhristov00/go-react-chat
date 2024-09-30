@@ -21,6 +21,23 @@ func LoadEnvFile() error {
 			log.Fatalf("Couldn't get current working directory: %v", err)
 		}
 
+		for {
+			// Check if the go.mod file exists in the current directory
+			if _, err := os.Stat(filepath.Join(currentDir, ".env")); err == nil {
+				break
+			}
+
+			// Move up one directory level
+			parent := filepath.Dir(currentDir)
+			if parent == currentDir {
+				// If the parent directory is the same as the current, we've reached the root
+				// but still the .env file is nowhere to be found
+				return fmt.Errorf("Reached the root directory, but couldn't find .env file")
+			}
+
+			currentDir = parent
+		}
+
 		envPath := filepath.Join(currentDir, ".env")
 
 		err = godotenv.Load(envPath)

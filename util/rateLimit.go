@@ -8,28 +8,28 @@ import (
 )
 
 // Global cache map for recent users, used to track the amount of requests
-// they have made in an alotted time slot (timeSlotSeconds).
+// they have made in an alotted time slot (TimeSlotSeconds).
 var IpRegistry = NewThreadSafeMap[string, int]()
 
 const (
-	// The maximum request for a user per timeSlotSeconds
-	maximumRequests = 20
+	// The maximum request for a user per TimeSlotSeconds
+	MaximumRequests = 20
 
 	// The time slot after which request counters will be zeroed for users
-	timeSlotSeconds = 60
+	TimeSlotSeconds = 60
 
 	// The time slot after which we clear the gathered keys. This is done so
 	// we don't take up a lot of memory eventually, since this map is going to grow
 	// continuosly, but some users may not log in for a long time.
-	cacheClearMinutes = 1440
+	CacheClearMinutes = 1440
 )
 
-// This function will act as a reset switch, checking every timeSlotSeconds
-// and resetting the counters for each user. When cacheClearMinutes passes
+// This function will act as a reset switch, checking every TimeSlotSeconds
+// and resetting the counters for each user. When CacheClearMinutes passes
 // this function will clear all gathered keys in the map.
 func RateLimit() {
-	resetTicker := time.NewTicker(timeSlotSeconds * time.Second)
-	clearTicker := time.NewTicker((cacheClearMinutes * 60) * time.Second)
+	resetTicker := time.NewTicker(TimeSlotSeconds * time.Second)
+	clearTicker := time.NewTicker((CacheClearMinutes * 60) * time.Second)
 
 	for {
 		select {
@@ -52,10 +52,10 @@ func CheckForRateLimit(request *http.Request) error {
 		return nil
 	}
 
-	if counter < maximumRequests {
+	if counter < MaximumRequests {
 		IpRegistry.Set(remoteAddr, counter+1)
 		return nil
 	}
 
-	return fmt.Errorf("Reached maximum allowed requests. Try again in %d seconds", timeSlotSeconds)
+	return fmt.Errorf("Reached maximum allowed requests. Try again in %d seconds", TimeSlotSeconds)
 }
